@@ -1,0 +1,31 @@
+name: Deploy Node App to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get Code
+        uses: actions/checkout@v3
+
+      - name: Build Docker Image
+        run: docker build -t node-devops-app .
+
+      - name: Save SSH Key
+        run: |
+          echo "${{ secrets.EC2_KEY }}" > key.pem
+          chmod 400 key.pem
+
+      - name: Deploy to EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no -i key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          docker stop node-app || true
+          docker rm node-app || true
+          docker build -t node-devops-app .
+          docker run -d -p 3000:3000 --name node-app node-devops-app
+          EOF
